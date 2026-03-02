@@ -10,7 +10,7 @@
 
 ### 1.1 全体構成
 
-```
+```text
 ┌─────────────────┐     ┌──────────────────────┐     ┌─────────────┐
 │  Cloudflare      │     │  Cloudflare Workers   │     │   Neon       │
 │  Pages           │────▶│  (Hono API)           │────▶│  PostgreSQL  │
@@ -42,7 +42,7 @@
 
 ### 2.1 ディレクトリ構成
 
-```
+```text
 FreshKeeper/
 ├── packages/
 │   ├── frontend/                 # React SPA
@@ -120,7 +120,7 @@ packages:
 
 ### 2.3 パッケージ間の依存関係
 
-```
+```text
 shared ← frontend
 shared ← backend
 ```
@@ -134,7 +134,7 @@ shared ← backend
 
 ### 3.1 ER図
 
-```
+```text
 ┌──────────────┐     ┌──────────────────┐     ┌──────────────────┐
 │    user       │     │     session       │     │    account        │
 │──────────────│     │──────────────────│     │──────────────────│
@@ -264,7 +264,7 @@ export const notificationSetting = pgTable("notification_setting", {
 | POST | /api/auth/sign-in/social | Google OAuthログイン |
 | POST | /api/auth/sign-out | ログアウト |
 | GET | /api/auth/session | セッション取得 |
-| POST | /api/auth/forget-password | パスワードリセットメール送信 |
+| POST | /api/auth/request-password-reset | パスワードリセットメール送信 |
 | POST | /api/auth/reset-password | パスワードリセット実行 |
 
 ### 4.3 食品管理エンドポイント
