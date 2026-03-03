@@ -53,7 +53,7 @@ FreshKeeper/
 │   │   │   ├── features/         # 機能別モジュール
 │   │   │   │   ├── auth/         # 認証関連（ログイン、登録画面等）
 │   │   │   │   ├── foods/        # 食品管理（一覧、登録、編集等）
-│   │   │   │   └── notifications/# 通知関連
+│   │   │   │   └── notifications/# 期限間近の警告表示関連
 │   │   │   ├── hooks/            # カスタムフック
 │   │   │   ├── lib/              # ユーティリティ、API クライアント
 │   │   │   ├── routes/           # ルーティング定義
@@ -67,38 +67,35 @@ FreshKeeper/
 │   │   ├── vite.config.ts
 │   │   └── package.json
 │   │
-│   ├── backend/                  # Hono API (Cloudflare Workers)
-│   │   ├── src/
-│   │   │   ├── routes/           # APIルート定義
-│   │   │   │   ├── foods.ts      # 食品CRUD
-│   │   │   │   ├── notifications.ts # 通知設定
-│   │   │   │   └── auth.ts       # Better Auth ハンドラー
-│   │   │   ├── middleware/       # ミドルウェア（認証チェック等）
-│   │   │   ├── db/
-│   │   │   │   ├── schema.ts     # Drizzle スキーマ定義
-│   │   │   │   ├── migrations/   # マイグレーションファイル
-│   │   │   │   └── index.ts      # DB接続
-│   │   │   ├── services/         # ビジネスロジック
-│   │   │   ├── validators/       # Zod スキーマ（リクエストバリデーション）
-│   │   │   ├── lib/              # ユーティリティ
-│   │   │   │   └── auth.ts       # Better Auth 設定
-│   │   │   └── index.ts          # エントリーポイント
-│   │   ├── drizzle.config.ts
-│   │   ├── tsconfig.json
-│   │   ├── wrangler.toml         # Cloudflare Workers 設定
-│   │   └── package.json
-│   │
-│   └── shared/                   # フロント・バック共有コード
+│   └── backend/                  # Hono API (Cloudflare Workers)
 │       ├── src/
-│       │   ├── types/            # 共通型定義（APIレスポンス等）
-│       │   ├── constants/        # 共通定数（カテゴリ、単位等）
-│       │   └── validators/       # 共通バリデーションスキーマ
+│       │   ├── routes/           # APIルート定義
+│       │   │   ├── foods.ts      # 食品CRUD
+│       │   │   ├── notifications.ts # 通知設定
+│       │   │   └── auth.ts       # Better Auth ハンドラー
+│       │   ├── middleware/       # ミドルウェア（認証チェック等）
+│       │   ├── db/
+│       │   │   ├── schema.ts     # Drizzle スキーマ定義
+│       │   │   ├── migrations/   # マイグレーションファイル
+│       │   │   └── index.ts      # DB接続
+│       │   ├── services/         # ビジネスロジック
+│       │   ├── shared/           # フロント・バック共有コード
+│       │   │   ├── types/        # 共通型定義（APIレスポンス等）
+│       │   │   ├── constants/    # 共通定数（カテゴリ、単位等）
+│       │   │   └── validators/   # 共通バリデーションスキーマ
+│       │   ├── validators/       # Zod スキーマ（リクエストバリデーション）
+│       │   ├── lib/              # ユーティリティ
+│       │   │   └── auth.ts       # Better Auth 設定
+│       │   └── index.ts          # エントリーポイント
+│       ├── drizzle.config.ts
 │       ├── tsconfig.json
+│       ├── wrangler.toml         # Cloudflare Workers 設定
 │       └── package.json
 │
 ├── docs/                         # ドキュメント
 │   ├── requirements.md
-│   └── technical-design.md
+│   ├── technical-design.md
+│   └── future-scope.md
 ├── .github/
 │   └── workflows/                # CI/CD
 ├── pnpm-workspace.yaml
@@ -121,12 +118,11 @@ packages:
 ### 2.3 パッケージ間の依存関係
 
 ```text
-shared ← frontend
-shared ← backend
+backend ← frontend
 ```
 
-- `shared` パッケージは API の型定義、定数、共通バリデーションスキーマを提供
-- フロント・バック間の型安全性を保証
+- 共有コード（API の型定義、定数、共通バリデーションスキーマ）は `backend/src/shared/` に配置し、`backend` パッケージからexportする
+- `frontend` は `backend` パッケージの共有コードをimportすることでフロント・バック間の型安全性を保証
 
 ---
 
@@ -155,13 +151,13 @@ shared ← backend
 │──────────────────────│     │──────────────────────│
 │ id (PK)               │     │ id (PK)               │
 │ userId (FK)           │     │ userId (FK, UNIQUE)    │
-│ name                  │     │ enablePush             │
-│ quantity              │     │ enableEmail            │
-│ unit                  │     │ consumeDaysBefore      │
-│ expiryType            │     │ bestBeforeDaysBefore   │
-│ expiryDate            │     │ createdAt              │
-│ purchaseDate          │     │ updatedAt              │
-│ category              │     └──────────────────────┘
+│ name                  │     │ consumeDaysBefore      │
+│ quantity              │     │ bestBeforeDaysBefore   │
+│ unit                  │     │ createdAt              │
+│ expiryType            │     │ updatedAt              │
+│ expiryDate            │     └──────────────────────┘
+│ purchaseDate          │
+│ category              │
 │ storageLocation       │
 │ memo                  │
 │ createdAt             │
@@ -199,14 +195,14 @@ Better Auth が自動生成・管理するテーブル。`npx auth generate` で
 
 #### notification_setting テーブル
 
+画面上で「期限間近」の警告表示を何日前から出すかをユーザーが設定するためのテーブル。
+
 | カラム | 型 | 制約 | 説明 |
 |--------|-----|------|------|
 | id | uuid | PK, DEFAULT gen_random_uuid() | 設定ID |
 | userId | text | FK → user.id, UNIQUE, NOT NULL | ユーザー |
-| enablePush | boolean | NOT NULL, DEFAULT true | Webプッシュ通知の有効/無効 |
-| enableEmail | boolean | NOT NULL, DEFAULT false | メール通知の有効/無効 |
-| consumeDaysBefore | integer[] | NOT NULL, DEFAULT '{3,1,0}' | 消費期限の通知日（何日前） |
-| bestBeforeDaysBefore | integer[] | NOT NULL, DEFAULT '{7,3,0}' | 賞味期限の通知日（何日前） |
+| consumeDaysBefore | integer[] | NOT NULL, DEFAULT '{3,1,0}' | 消費期限の警告表示日（何日前） |
+| bestBeforeDaysBefore | integer[] | NOT NULL, DEFAULT '{7,3,0}' | 賞味期限の警告表示日（何日前） |
 | createdAt | timestamp | NOT NULL, DEFAULT now() | 作成日時 |
 | updatedAt | timestamp | NOT NULL, DEFAULT now() | 更新日時 |
 
@@ -214,7 +210,7 @@ Better Auth が自動生成・管理するテーブル。`npx auth generate` で
 
 ```typescript
 // packages/backend/src/db/schema.ts
-import { pgTable, text, varchar, decimal, date, timestamp, boolean, integer, uuid } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, decimal, date, timestamp, integer, uuid } from "drizzle-orm/pg-core";
 
 // Better Auth テーブルは npx auth generate で生成
 
@@ -237,8 +233,6 @@ export const food = pgTable("food", {
 export const notificationSetting = pgTable("notification_setting", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }).unique(),
-  enablePush: boolean("enable_push").notNull().default(true),
-  enableEmail: boolean("enable_email").notNull().default(false),
   consumeDaysBefore: integer("consume_days_before").array().notNull().default([3, 1, 0]),
   bestBeforeDaysBefore: integer("best_before_days_before").array().notNull().default([7, 3, 0]),
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -261,11 +255,8 @@ export const notificationSetting = pgTable("notification_setting", {
 |---------|------|------|
 | POST | /api/auth/sign-up/email | メール/パスワードで新規登録 |
 | POST | /api/auth/sign-in/email | メール/パスワードでログイン |
-| POST | /api/auth/sign-in/social | Google OAuthログイン |
 | POST | /api/auth/sign-out | ログアウト |
 | GET | /api/auth/session | セッション取得 |
-| POST | /api/auth/request-password-reset | パスワードリセットメール送信 |
-| POST | /api/auth/reset-password | パスワードリセット実行 |
 
 ### 4.3 食品管理エンドポイント
 
@@ -316,12 +307,14 @@ export const notificationSetting = pgTable("notification_setting", {
 }
 ```
 
-### 4.4 通知設定エンドポイント
+### 4.4 通知設定エンドポイント（画面表示設定）
+
+期限間近の警告表示を何日前から出すかの設定。認証必須。
 
 | メソッド | パス | 説明 |
 |---------|------|------|
-| GET | /api/notification-settings | 通知設定取得 |
-| PUT | /api/notification-settings | 通知設定更新 |
+| GET | /api/notification-settings | 警告表示設定取得 |
+| PUT | /api/notification-settings | 警告表示設定更新 |
 
 ### 4.5 共通レスポンス形式
 
@@ -379,19 +372,13 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
   },
-  socialProviders: {
-    google: {
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    },
-  },
 });
 ```
 
 ### 5.2 認証フロー
 
 1. **メール/パスワード登録**: `/api/auth/sign-up/email` → user + account レコード作成 → セッション発行
-2. **Googleログイン**: `/api/auth/sign-in/social?provider=google` → Google OAuth → user + account 作成/紐付け → セッション発行
+2. **メール/パスワードログイン**: `/api/auth/sign-in/email` → 認証 → セッション発行
 3. **セッション検証**: 各APIリクエスト時にミドルウェアで `auth.api.getSession()` を呼び出し
 4. **ログアウト**: `/api/auth/sign-out` → セッション無効化
 
@@ -431,8 +418,6 @@ export const requireAuth = createMiddleware(async (c, next) => {
 DATABASE_URL=postgresql://...@neon.tech/freshkeeper
 BETTER_AUTH_URL=https://api.freshkeeper.example.com
 BETTER_AUTH_SECRET=<ランダムな秘密鍵>
-GOOGLE_CLIENT_ID=<Google OAuth Client ID>
-GOOGLE_CLIENT_SECRET=<Google OAuth Client Secret>
 
 # フロントエンド
 VITE_API_URL=https://api.freshkeeper.example.com
@@ -454,8 +439,9 @@ Neon への接続は Cloudflare Hyperdrive または直接接続（`@neondatabas
 
 ### 6.4 CI/CD（GitHub Actions）
 
-- **PR時**: lint + 型チェック + テスト
-- **main マージ時**: 自動デプロイ（Pages + Workers）
+- **PR時**: lint + 型チェック
+
+デプロイは手動（`wrangler deploy` / Cloudflare Pages Git連携）で運用。
 
 ---
 
@@ -475,7 +461,7 @@ Neon への接続は Cloudflare Hyperdrive または直接接続（`@neondatabas
 2. 認証フロー（登録、ログイン、ログアウト）
 3. 数量の部分消費ロジック
 4. 食品一覧のフィルター・ソート
-5. 通知設定の更新
+5. 警告表示設定の更新
 
 ---
 
